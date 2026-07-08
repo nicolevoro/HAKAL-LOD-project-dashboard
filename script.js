@@ -334,11 +334,12 @@ function _updateDonut2(internal) {
     });
   });
 
-  // KPIs
-  document.getElementById('kDone').textContent    = done;
-  document.getElementById('kDoneSub').textContent = due > 0 ? `מתוך ${due} שהיו אמורות` : '';
-  document.getElementById('kPct').textContent     = due > 0 ? `${Math.round(done / due * 100)}%` : '—';
-  document.getElementById('kDef').textContent     = def;
+  // KPIs — use safe setter to avoid null errors if element is missing from HTML
+  function _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+  _set('kDone',    done);
+  _set('kDoneSub', due > 0 ? `מתוך ${due} שהיו אמורות` : '');
+  _set('kPct',     due > 0 ? `${Math.round(done / due * 100)}%` : '—');
+  _set('kDef',     def);
 
   // Donut
   const ord    = ['בוצע','בוצע חלקית','לא בוצע','צפי לעמידה','צפי לאי עמידה'];
@@ -635,15 +636,16 @@ function update() {
   const external = filtered.filter(r =>  r.is_ext);
   const eiruv    = filtered.filter(r =>  r.is_eiruv);
 
+  // Helper: set textContent safely (no error if element missing from HTML)
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
   // ── Topbar ──
-  document.getElementById('hbadge').textContent    = `${filtered.length} פרויקטים`;
-  document.getElementById('tb-subtitle').textContent =
-    `${internal.length} פנימי · ${external.length} גורמי חוץ · ${eiruv.length} עירוב שימושים`;
+  set('hbadge',      `${filtered.length} פרויקטים`);
+  set('tb-subtitle', `${internal.length} פנימי · ${external.length} גורמי חוץ · ${eiruv.length} עירוב שימושים`);
 
   // ── KPIs ──
-  document.getElementById('kTotal').textContent   = filtered.length;
-  document.getElementById('kTotalSub').textContent =
-    `${internal.length} פנימי · ${external.length} חיצוני · ${eiruv.length} עירוב`;
+  set('kTotal',    filtered.length);
+  set('kTotalSub', `${internal.length} פנימי · ${external.length} חיצוני · ${eiruv.length} עירוב`);
 
   let atRisk = 0, blocked = 0;
   internal.forEach(r => {
@@ -653,8 +655,8 @@ function update() {
       if (st === 'לא בוצע' || st === 'צפי לאי עמידה') atRisk++;
     });
   });
-  document.getElementById('kRisk').textContent    = atRisk;
-  document.getElementById('kBlocked').textContent = blocked;
+  set('kRisk',    atRisk);
+  set('kBlocked', blocked);
 
   // ── Charts ──
   _updateDonut1(internal);
@@ -662,19 +664,20 @@ function update() {
   _updateMgrBars(internal);
 
   // ── Tables ──
-  document.getElementById('cnt-int').textContent   = internal.length;
-  document.getElementById('cnt-ext').textContent   = external.length;
-  document.getElementById('cnt-eiruv').textContent = eiruv.length;
+  set('cnt-int',   internal.length);
+  set('cnt-ext',   external.length);
+  set('cnt-eiruv', eiruv.length);
 
-  const thead = makeThead(false);
+  const thead    = makeThead(false);
   const theadExt = makeThead(true);
+  const setHTML  = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
-  document.getElementById('th-int').innerHTML    = thead;
-  document.getElementById('tb-int').innerHTML    = makeRows(internal, stInt,   false, false);
-  document.getElementById('th-ext').innerHTML    = theadExt;
-  document.getElementById('tb-ext').innerHTML    = makeRows(external, stExt,   true,  false);
-  document.getElementById('th-eiruv').innerHTML  = thead;
-  document.getElementById('tb-eiruv').innerHTML  = makeRows(eiruv,   stEiruv, false, true);
+  setHTML('th-int',   thead);
+  setHTML('tb-int',   makeRows(internal, stInt,   false, false));
+  setHTML('th-ext',   theadExt);
+  setHTML('tb-ext',   makeRows(external, stExt,   true,  false));
+  setHTML('th-eiruv', thead);
+  setHTML('tb-eiruv', makeRows(eiruv,   stEiruv, false, true));
 
   // ── Risk page (update if visible) ──
   if (document.getElementById('page-risk').classList.contains('active')) {

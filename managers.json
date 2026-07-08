@@ -1,10 +1,9 @@
 [
-  { "code": "1234", "name": "רענן סיטון",       "role": "manager" },
-  { "code": "2345", "name": "חן רוזנברג",       "role": "manager" },
-  { "code": "3456", "name": "חיים בירנמבוים",   "role": "manager" },
-  { "code": "4567", "name": "מושיק",             "role": "manager" },
-  { "code": "5678", "name": "מיישר אילוז",      "role": "manager" },
-  { "code": "6789", "name": "נצח ישראל יונה",   "role": "manager" },
-  { "code": "7890", "name": "עוז שורץ",         "role": "manager" },
-  { "code": "9999", "name": "מנהל מערכת",       "role": "admin"   }
+  { "code": "48371HX", "name": "חיים בירנמבוים",  "role": "manager" },
+  { "code": "91524CR", "name": "חן רוזנברג",       "role": "manager" },
+  { "code": "36280MR", "name": "מיישר אילוז",      "role": "manager" },
+  { "code": "74815NY", "name": "נצח ישראל יונה",   "role": "manager" },
+  { "code": "20493OZ", "name": "עוז שורץ",         "role": "manager" },
+  { "code": "68157RS", "name": "רענן סיטון",       "role": "manager" },
+  { "code": "95731AD", "name": "מנהל מערכת",       "role": "admin"   }
 ]
