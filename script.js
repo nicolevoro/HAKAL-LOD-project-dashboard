@@ -64,6 +64,22 @@ let mapInst    = null;
 let mapMarkers = [];
 
 /* ════════════════════════════════════════════════
+   SAFE DOM HELPERS  (module-level, used everywhere)
+════════════════════════════════════════════════ */
+
+/** Safely set textContent — does nothing if element is missing */
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+/** Safely set innerHTML — does nothing if element is missing */
+function setHTML(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+/* ════════════════════════════════════════════════
    AUTH MODULE
 ════════════════════════════════════════════════ */
 
@@ -335,11 +351,11 @@ function _updateDonut2(internal) {
   });
 
   // KPIs — use safe setter to avoid null errors if element is missing from HTML
-  function _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
-  _set('kDone',    done);
-  _set('kDoneSub', due > 0 ? `מתוך ${due} שהיו אמורות` : '');
-  _set('kPct',     due > 0 ? `${Math.round(done / due * 100)}%` : '—');
-  _set('kDef',     def);
+  // use module-level set() helper
+  set('kDone',    done);
+  set('kDoneSub', due > 0 ? `מתוך ${due} שהיו אמורות` : '');
+  set('kPct',     due > 0 ? `${Math.round(done / due * 100)}%` : '—');
+  set('kDef',     def);
 
   // Donut
   const ord    = ['בוצע','בוצע חלקית','לא בוצע','צפי לעמידה','צפי לאי עמידה'];
@@ -631,61 +647,62 @@ function nav(page) {
 ════════════════════════════════════════════════ */
 
 function update() {
-  const filtered = getFiltered();
-  const internal = filtered.filter(r => !r.is_ext && !r.is_eiruv);
-  const external = filtered.filter(r =>  r.is_ext);
-  const eiruv    = filtered.filter(r =>  r.is_eiruv);
+  try {
+    const filtered = getFiltered();
+    const internal = filtered.filter(r => !r.is_ext && !r.is_eiruv);
+    const external = filtered.filter(r =>  r.is_ext);
+    const eiruv    = filtered.filter(r =>  r.is_eiruv);
 
-  // Helper: set textContent safely (no error if element missing from HTML)
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    // ── Topbar ──
+    set('hbadge',      `${filtered.length} פרויקטים`);
+    set('tb-subtitle', `${internal.length} פנימי · ${external.length} גורמי חוץ · ${eiruv.length} עירוב שימושים`);
 
-  // ── Topbar ──
-  set('hbadge',      `${filtered.length} פרויקטים`);
-  set('tb-subtitle', `${internal.length} פנימי · ${external.length} גורמי חוץ · ${eiruv.length} עירוב שימושים`);
+    // ── KPIs ──
+    set('kTotal',    filtered.length);
+    set('kTotalSub', `${internal.length} פנימי · ${external.length} חיצוני · ${eiruv.length} עירוב`);
 
-  // ── KPIs ──
-  set('kTotal',    filtered.length);
-  set('kTotalSub', `${internal.length} פנימי · ${external.length} חיצוני · ${eiruv.length} עירוב`);
-
-  let atRisk = 0, blocked = 0;
-  internal.forEach(r => {
-    if (r.blockers) blocked++;
-    QS26.forEach(q => {
-      const st = r.comp[q];
-      if (st === 'לא בוצע' || st === 'צפי לאי עמידה') atRisk++;
+    let atRisk = 0, blocked = 0;
+    internal.forEach(r => {
+      if (r.blockers) blocked++;
+      QS26.forEach(q => {
+        const st = r.comp[q];
+        if (st === 'לא בוצע' || st === 'צפי לאי עמידה') atRisk++;
+      });
     });
-  });
-  set('kRisk',    atRisk);
-  set('kBlocked', blocked);
+    set('kRisk',    atRisk);
+    set('kBlocked', blocked);
 
-  // ── Charts ──
-  _updateDonut1(internal);
-  _updateDonut2(internal);
-  _updateMgrBars(internal);
+    // ── Charts (each isolated so one failure won't block tables) ──
+    try { _updateDonut1(internal);  } catch (e) { console.error('donut1:', e); }
+    try { _updateDonut2(internal);  } catch (e) { console.error('donut2:', e); }
+    try { _updateMgrBars(internal); } catch (e) { console.error('mgrBars:', e); }
 
-  // ── Tables ──
-  set('cnt-int',   internal.length);
-  set('cnt-ext',   external.length);
-  set('cnt-eiruv', eiruv.length);
+    // ── Tables ──
+    set('cnt-int',   internal.length);
+    set('cnt-ext',   external.length);
+    set('cnt-eiruv', eiruv.length);
 
-  const thead    = makeThead(false);
-  const theadExt = makeThead(true);
-  const setHTML  = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    try {
+      setHTML('th-int',   makeThead(false));
+      setHTML('tb-int',   makeRows(internal, stInt,   false, false));
+      setHTML('th-ext',   makeThead(true));
+      setHTML('tb-ext',   makeRows(external, stExt,   true,  false));
+      setHTML('th-eiruv', makeThead(false));
+      setHTML('tb-eiruv', makeRows(eiruv,   stEiruv, false, true));
+    } catch (e) { console.error('tables:', e); }
 
-  setHTML('th-int',   thead);
-  setHTML('tb-int',   makeRows(internal, stInt,   false, false));
-  setHTML('th-ext',   theadExt);
-  setHTML('tb-ext',   makeRows(external, stExt,   true,  false));
-  setHTML('th-eiruv', thead);
-  setHTML('tb-eiruv', makeRows(eiruv,   stEiruv, false, true));
+    // ── Risk page ──
+    const riskPage = document.getElementById('page-risk');
+    if (riskPage && riskPage.classList.contains('active')) {
+      try { _updateRisk(filtered); } catch (e) { console.error('risk:', e); }
+    }
 
-  // ── Risk page (update if visible) ──
-  if (document.getElementById('page-risk').classList.contains('active')) {
-    _updateRisk(filtered);
+    // ── Map ──
+    if (mapInst) try { updateMap(); } catch (e) { console.error('map:', e); }
+
+  } catch (e) {
+    console.error('update() failed:', e);
   }
-
-  // ── Map (update if visible) ──
-  if (mapInst) updateMap();
 }
 
 /* ════════════════════════════════════════════════
