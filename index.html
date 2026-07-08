@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>חכ"ל · BI ניהולי 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     LOGIN SCREEN
+     Shown before the dashboard. Reads managers.json.
+════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">חכ</div>
+    <div class="login-title">מערכת BI חכ"ל</div>
+    <div class="login-sub">תוכנית עבודה 2026</div>
+    <input
+      id="login-input"
+      class="login-input"
+      type="password"
+      placeholder="קוד גישה"
+      autocomplete="off"
+      onkeydown="if(event.key==='Enter') doLogin()"
+    >
+    <button class="login-btn" onclick="doLogin()">כניסה למערכת</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     DASHBOARD
+     Hidden until login. Revealed by script.js.
+════════════════════════════════════════════════ -->
+<div id="dashboard">
+
+  <!-- ── TOPBAR ── -->
+  <header class="topbar">
+    <div class="tb-logo">
+      <div class="tb-mark">חכ</div>
+      <div>
+        <div class="tb-name">חכ"ל · BI ניהולי 2026</div>
+        <div class="tb-sub" id="tb-subtitle">טוען...</div>
+      </div>
+    </div>
+
+    <nav class="tb-nav">
+      <button class="nav-btn active" onclick="nav('dash')"  id="nav-dash">📊 דשבורד</button>
+      <button class="nav-btn"        onclick="nav('risk')"  id="nav-risk">🔍 ניתוח סיכונים</button>
+      <button class="nav-btn"        onclick="nav('map')"   id="nav-map">🗺️ מפה</button>
+    </nav>
+
+    <!-- Dynamic filters — hidden for manager role (they see only own projects) -->
+    <div class="tb-filters" id="tb-filters">
+      <select class="fpill" id="fHood" onchange="update()"><option value="">כל המתחמים</option></select>
+      <select class="fpill" id="fPM"   onchange="update()"><option value="">כל המנהלים</option></select>
+      <select class="fpill" id="fSt"   onchange="update()"><option value="">כל הסטטוסים</option></select>
+      <button class="btn-rst" onclick="resetFilters()">✕ אפס</button>
+    </div>
+
+    <div class="tb-right">
+      <div class="tb-badge"><span class="live"></span><span id="hbadge">טוען...</span></div>
+      <button class="btn-logout" onclick="doLogout()">יציאה ↩</button>
+    </div>
+  </header>
+
+  <!-- ════ PAGE: DASHBOARD ════ -->
+  <div class="page active" id="page-dash">
+  <div class="page-inner">
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi k-blue">
+        <div class="ki">🏗️</div>
+        <div class="kl">סה"כ פרויקטים</div>
+        <div class="kv" id="kTotal">—</div>
+        <div class="ks" id="kTotalSub">—</div>
+      </div>
+      <div class="kpi k-green">
+        <div class="ki">✅</div>
+        <div class="kl">אבני דרך בוצעו</div>
+        <div class="kv" id="kDone">—</div>
+        <div class="kd" id="kDoneSub"></div>
+        <div class="ks">פנימי בלבד</div>
+      </div>
+      <div class="kpi k-red">
+        <div class="ki">🚨</div>
+        <div class="kl">בסיכון / איחור</div>
+        <div class="kv" id="kRisk">—</div>
+        <div class="ks">לא בוצע + צפי לאי עמידה</div>
+      </div>
+      <div class="kpi k-purple">
+        <div class="ki">📈</div>
+        <div class="kl">אחוז ביצוע א"ד</div>
+        <div class="kv" id="kPct">—</div>
+        <div class="ks">מתוך שהיו אמורות</div>
+      </div>
+      <div class="kpi k-amber">
+        <div class="ki">⛔</div>
+        <div class="kl">פרויקטים עם חסמים</div>
+        <div class="kv" id="kBlocked">—</div>
+        <div class="ks">דורשים טיפול</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-title"><span class="cdot" style="background:var(--brand)"></span>פילוח לפי סטטוס</div>
+        <div class="card-sub">פנימי בלבד</div>
+        <div class="donut-wrap">
+          <div class="drel">
+            <canvas id="d1" width="148" height="148" style="width:148px;height:148px"></canvas>
+            <div class="dctr" id="d1ctr"></div>
+          </div>
+          <div class="leg" id="leg1"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="cdot" style="background:var(--success)"></span>עמידה באבני דרך</div>
+        <div class="card-sub">פנימי בלבד · Q1–Q4 2026</div>
+        <div class="donut-wrap">
+          <div class="drel">
+            <canvas id="d2" width="148" height="148" style="width:148px;height:148px"></canvas>
+          </div>
+          <div class="leg" id="leg2"></div>
+        </div>
+      </div>
+      <div class="chart-grid" style="grid-template-columns:1fr;gap:10px;margin-bottom:0;">
+        <div class="card" style="padding:14px;">
+          <div class="card-title"><span class="cdot" style="background:var(--purple)"></span>עומס מנהלים</div>
+          <div class="card-sub" style="margin-bottom:10px">מספר פרויקטים</div>
+          <div class="hbar-list" id="mgr-bars"></div>
+        </div>
+        <div class="bl-card">
+          <div class="bl-title">🚧 חסמים רחוביים</div>
+          <div class="bl-grid">
+            <div class="bl-chip">🏛️ עירייה</div>        <div class="bl-chip">📋 רישוי</div>
+            <div class="bl-chip">🏢 פנימי חכ"ל</div>   <div class="bl-chip">🏗️ רשות חיצונית</div>
+            <div class="bl-chip">💰 תקציב רשויות</div> <div class="bl-chip">💳 תקציב השלמה</div>
+            <div class="bl-chip">👷 צוות תכנון</div>   <div class="bl-chip">⚔️ מלחמה</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Internal table -->
+    <div class="tbl-block">
+      <div class="tbl-hdr">
+        <div class="tbl-hdr-l">
+          <div class="tbl-ico int">🏢</div>
+          <div><div class="tbl-ttl">פרויקטים פנימיים</div><div class="tbl-sub-txt">מנוהלים ישירות על ידי חכ"ל</div></div>
+          <span class="tbl-cnt int" id="cnt-int">—</span>
+        </div>
+        <div class="ms-chips">
+          <div class="ms-chip"><div class="dot" style="background:#166534"></div>בוצע</div>
+          <div class="ms-chip"><div class="dot" style="background:#86efac"></div>צפי לעמידה</div>
+          <div class="ms-chip"><div class="dot" style="background:#fda4af"></div>צפי לאי עמידה</div>
+          <div class="ms-chip"><div class="dot" style="background:#dc2626"></div>לא בוצע</div>
+          <span style="font-size:9px;color:var(--text-4)">| ▸ לשורת ביצוע</span>
+        </div>
+      </div>
+      <div class="tscroll"><table><thead id="th-int"></thead><tbody id="tb-int"></tbody></table></div>
+    </div>
+
+    <!-- External table -->
+    <div class="tbl-block">
+      <div class="tbl-hdr">
+        <div class="tbl-hdr-l">
+          <div class="tbl-ico ext">🌿</div>
+          <div><div class="tbl-ttl">פרויקטים גורמי חוץ</div><div class="tbl-sub-txt">מבוצעים על ידי גורמים חיצוניים</div></div>
+          <span class="tbl-cnt ext" id="cnt-ext">—</span>
+        </div>
+      </div>
+      <div class="tscroll"><table><thead id="th-ext"></thead><tbody id="tb-ext"></tbody></table></div>
+    </div>
+
+    <!-- עירוב שימושים table -->
+    <div class="tbl-block">
+      <div class="tbl-hdr" style="background:var(--teal-lt);">
+        <div class="tbl-hdr-l">
+          <div class="tbl-ico eiruv">🏙️</div>
+          <div><div class="tbl-ttl" style="color:var(--teal)">טבלת עירוב שימושים</div><div class="tbl-sub-txt">פרויקטים מסוג עירוב שימושים</div></div>
+          <span class="tbl-cnt eiruv" id="cnt-eiruv">—</span>
+        </div>
+      </div>
+      <div class="tscroll"><table><thead id="th-eiruv"></thead><tbody id="tb-eiruv"></tbody></table></div>
+    </div>
+
+  </div>
+  </div><!-- /page-dash -->
+
+  <!-- ════ PAGE: RISK ════ -->
+  <div class="page" id="page-risk">
+  <div class="page-inner">
+    <div class="risk-section">
+      <div class="card">
+        <div class="card-title"><span class="cdot" style="background:var(--danger)"></span>10 פרויקטים קריטיים</div>
+        <div class="card-sub">מסודר לפי ציון סיכון</div>
+        <div class="tscroll" style="max-height:400px;">
+          <table class="risk-tbl">
+            <thead><tr><th>#</th><th>פרויקט</th><th>מנהל</th><th>סיכון</th><th>עמידה</th><th>חסמים</th></tr></thead>
+            <tbody id="risk-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="card"><div class="card-title"><span class="cdot" style="background:var(--warning)"></span>סיכון לפי מנהל</div><canvas id="c-risk-mgr" height="180"></canvas></div>
+        <div class="card"><div class="card-title"><span class="cdot" style="background:var(--teal)"></span>סיכון לפי מתחם</div><canvas id="c-risk-hood" height="180"></canvas></div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /page-risk -->
+
+  <!-- ════ PAGE: MAP ════ -->
+  <div class="page" id="page-map">
+    <div class="map-layout">
+      <div class="map-side">
+        <div>
+          <div class="map-side-title">🗺️ סינוני מפה</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <select class="map-sel" id="mfPM"   onchange="updateMap()"><option value="">כל המנהלים</option></select>
+            <select class="map-sel" id="mfSt"   onchange="updateMap()"><option value="">כל הסטטוסים</option></select>
+            <select class="map-sel" id="mfType" onchange="updateMap()">
+              <option value="">הכל</option>
+              <option value="int">פנימי</option>
+              <option value="ext">גורמי חוץ</option>
+              <option value="eiruv">עירוב שימושים</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div class="map-side-title">📊 צפיפות לפי מתחם</div>
+          <div id="hood-stats" style="display:flex;flex-direction:column;gap:5px;"></div>
+        </div>
+      </div>
+      <div id="mapEl"></div>
+    </div>
+  </div><!-- /page-map -->
+
+</div><!-- /dashboard -->
+
+<!-- External libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- App logic -->
+<script src="script.js"></script>
+</body>
+</html>
