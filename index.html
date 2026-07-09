@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>חכ"ל · BI ניהולי 2026</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -216,37 +215,55 @@
   </div>
   </div><!-- /page-risk -->
 
-  <!-- ════ PAGE: MAP ════ -->
+  <!-- ════ PAGE: MAP — Neighbourhood Information System ════ -->
   <div class="page" id="page-map">
-    <div class="map-layout">
-      <div class="map-side">
-        <div>
-          <div class="map-side-title">🗺️ סינוני מפה</div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <select class="map-sel" id="mfPM"   onchange="updateMap()"><option value="">כל המנהלים</option></select>
-            <select class="map-sel" id="mfSt"   onchange="updateMap()"><option value="">כל הסטטוסים</option></select>
-            <select class="map-sel" id="mfType" onchange="updateMap()">
-              <option value="">הכל</option>
-              <option value="int">פנימי</option>
-              <option value="ext">גורמי חוץ</option>
-              <option value="eiruv">עירוב שימושים</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <div class="map-side-title">📊 צפיפות לפי מתחם</div>
-          <div id="hood-stats" style="display:flex;flex-direction:column;gap:5px;"></div>
+
+    <!-- Top bar: neighbourhood tabs + type filters + legend -->
+    <div class="nm-bar">
+      <div class="nm-bar-left">
+        <span class="nm-bar-label">שכונה</span>
+        <div class="nm-tabs" id="nm-tabs"></div>
+        <div class="nm-type-filters" id="nm-type-filters"></div>
+      </div>
+      <div class="nm-bar-right">
+        <div class="nm-legend">
+          <div class="nm-leg-item"><span class="nm-dot" style="background:#059669"></span>הושלם</div>
+          <div class="nm-leg-item"><span class="nm-dot" style="background:#1d4ed8"></span>ביצוע</div>
+          <div class="nm-leg-item"><span class="nm-dot" style="background:#d97706"></span>תכנון</div>
+          <div class="nm-leg-item"><span class="nm-dot" style="background:#dc2626"></span>עיכוב</div>
+          <div class="nm-leg-item"><span class="nm-dot" style="background:#94a3b8"></span>טרם החל</div>
+          <div class="nm-leg-item"><span class="nm-dot" style="background:#8b5cf6"></span>עירוב שימושים</div>
+          <div class="nm-leg-item"><span class="nm-dot" style="background:#6b7280"></span>ציבורי</div>
         </div>
       </div>
-      <div id="mapEl"></div>
     </div>
+
+    <!-- Lot grid + detail panel -->
+    <div class="nm-body">
+      <div class="nm-grid-wrap">
+        <div class="nm-grid" id="nm-grid"></div>
+      </div>
+
+      <div class="nm-panel" id="nm-panel">
+        <div class="nm-panel-hdr">
+          <div>
+            <div class="nm-panel-title" id="nm-panel-title">—</div>
+            <div class="nm-panel-sub"   id="nm-panel-sub"></div>
+          </div>
+          <button class="nm-panel-close" onclick="nmClosePanel()">✕</button>
+        </div>
+        <div class="nm-panel-body" id="nm-panel-body">
+          <div class="nm-panel-hint">בחר שכונה ולחץ על מגרש לצפייה בפרטים</div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /page-map -->
 
 </div><!-- /dashboard -->
 
 <!-- External libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- App logic -->
 <script src="script.js"></script>
 </body>
