@@ -202,7 +202,7 @@ function _initDropdowns() {
 
   function fill(id, arr) {
     const sel = document.getElementById(id);
-    // Clear existing options except the first ("הכל")
+    if (!sel) return; // element may not exist in current page layout
     while (sel.options.length > 1) sel.remove(1);
     arr.forEach(v => {
       const o = document.createElement('option');
@@ -214,8 +214,6 @@ function _initDropdowns() {
   fill('fHood', hoods);
   fill('fPM',   pms);
   fill('fSt',   sts);
-  fill('mfPM',  pms);
-  fill('mfSt',  sts);
 }
 
 /** Read filter dropdowns and return matching projects */
