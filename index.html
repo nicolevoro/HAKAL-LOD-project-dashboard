@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>חכ"ל · BI ניהולי 2026</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -215,10 +216,10 @@
   </div>
   </div><!-- /page-risk -->
 
-  <!-- ════ PAGE: MAP — Neighbourhood Information System ════ -->
+  <!-- ════ PAGE: MAP — Neighbourhood Map + Lot Information ════ -->
   <div class="page" id="page-map">
 
-    <!-- Top bar: neighbourhood tabs + type filters + legend -->
+    <!-- Controls bar: neighbourhood tabs + type filter + legend -->
     <div class="nm-bar">
       <div class="nm-bar-left">
         <span class="nm-bar-label">שכונה</span>
@@ -238,23 +239,34 @@
       </div>
     </div>
 
-    <!-- Lot grid + detail panel -->
+    <!-- Map (left) + sidebar with cards/details (right) -->
     <div class="nm-body">
-      <div class="nm-grid-wrap">
-        <div class="nm-grid" id="nm-grid"></div>
-      </div>
 
-      <div class="nm-panel" id="nm-panel">
-        <div class="nm-panel-hdr">
-          <div>
-            <div class="nm-panel-title" id="nm-panel-title">—</div>
-            <div class="nm-panel-sub"   id="nm-panel-sub"></div>
+      <!-- Leaflet map — fills the left area -->
+      <div id="nmMapEl" class="nm-map-area"></div>
+
+      <!-- Sidebar — lot cards + detail panel stacked -->
+      <div class="nm-sidebar">
+
+        <!-- Scrollable lot card grid -->
+        <div class="nm-grid-wrap" id="nm-grid-wrap">
+          <div class="nm-grid" id="nm-grid"></div>
+        </div>
+
+        <!-- Detail panel — slides over the cards -->
+        <div class="nm-panel" id="nm-panel">
+          <div class="nm-panel-hdr">
+            <div>
+              <div class="nm-panel-title" id="nm-panel-title">—</div>
+              <div class="nm-panel-sub"   id="nm-panel-sub"></div>
+            </div>
+            <button class="nm-panel-close" onclick="nmClosePanel()">✕</button>
           </div>
-          <button class="nm-panel-close" onclick="nmClosePanel()">✕</button>
+          <div class="nm-panel-body" id="nm-panel-body">
+            <div class="nm-panel-hint">לחץ על מגרש לפרטים</div>
+          </div>
         </div>
-        <div class="nm-panel-body" id="nm-panel-body">
-          <div class="nm-panel-hint">בחר שכונה ולחץ על מגרש לצפייה בפרטים</div>
-        </div>
+
       </div>
     </div>
 
@@ -264,6 +276,7 @@
 
 <!-- External libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- App logic -->
 <script src="script.js"></script>
 </body>
