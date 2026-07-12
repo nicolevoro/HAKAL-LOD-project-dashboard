@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>חכ"ל · BI ניהולי 2026</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -216,58 +215,18 @@
   </div>
   </div><!-- /page-risk -->
 
-  <!-- ════ PAGE: MAP — Neighbourhood Map + Lot Information ════ -->
+  <!-- ════ PAGE: MAP — Neighbourhood Info ════ -->
   <div class="page" id="page-map">
 
-    <!-- Controls bar: neighbourhood tabs + type filter + legend -->
+    <!-- Neighbourhood selector -->
     <div class="nm-bar">
-      <div class="nm-bar-left">
-        <span class="nm-bar-label">שכונה</span>
-        <div class="nm-tabs" id="nm-tabs"></div>
-        <div class="nm-type-filters" id="nm-type-filters"></div>
-      </div>
-      <div class="nm-bar-right">
-        <div class="nm-legend">
-          <div class="nm-leg-item"><span class="nm-dot" style="background:#059669"></span>הושלם</div>
-          <div class="nm-leg-item"><span class="nm-dot" style="background:#1d4ed8"></span>ביצוע</div>
-          <div class="nm-leg-item"><span class="nm-dot" style="background:#d97706"></span>תכנון</div>
-          <div class="nm-leg-item"><span class="nm-dot" style="background:#dc2626"></span>עיכוב</div>
-          <div class="nm-leg-item"><span class="nm-dot" style="background:#94a3b8"></span>טרם החל</div>
-          <div class="nm-leg-item"><span class="nm-dot" style="background:#8b5cf6"></span>עירוב שימושים</div>
-          <div class="nm-leg-item"><span class="nm-dot" style="background:#6b7280"></span>ציבורי</div>
-        </div>
-      </div>
+      <span class="nm-bar-label">שכונה</span>
+      <div class="nm-tabs" id="nm-tabs"></div>
     </div>
 
-    <!-- Map (left) + sidebar with cards/details (right) -->
-    <div class="nm-body">
-
-      <!-- Leaflet map — fills the left area -->
-      <div id="nmMapEl" class="nm-map-area"></div>
-
-      <!-- Sidebar — lot cards + detail panel stacked -->
-      <div class="nm-sidebar">
-
-        <!-- Scrollable lot card grid -->
-        <div class="nm-grid-wrap" id="nm-grid-wrap">
-          <div class="nm-grid" id="nm-grid"></div>
-        </div>
-
-        <!-- Detail panel — slides over the cards -->
-        <div class="nm-panel" id="nm-panel">
-          <div class="nm-panel-hdr">
-            <div>
-              <div class="nm-panel-title" id="nm-panel-title">—</div>
-              <div class="nm-panel-sub"   id="nm-panel-sub"></div>
-            </div>
-            <button class="nm-panel-close" onclick="nmClosePanel()">✕</button>
-          </div>
-          <div class="nm-panel-body" id="nm-panel-body">
-            <div class="nm-panel-hint">לחץ על מגרש לפרטים</div>
-          </div>
-        </div>
-
-      </div>
+    <!-- Dynamic content (title, PDF button, project table) -->
+    <div class="nm-content" id="nm-content">
+      <div class="nm-loading">בוחר שכונה...</div>
     </div>
 
   </div><!-- /page-map -->
@@ -276,7 +235,6 @@
 
 <!-- External libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- App logic -->
 <script src="script.js"></script>
 </body>
