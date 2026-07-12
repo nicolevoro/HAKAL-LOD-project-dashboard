@@ -215,18 +215,65 @@
   </div>
   </div><!-- /page-risk -->
 
-  <!-- ════ PAGE: MAP — Neighbourhood Info ════ -->
+  <!-- ════ PAGE: MAP — Embedded PDF + Project Panel ════ -->
   <div class="page" id="page-map">
 
-    <!-- Neighbourhood selector -->
+    <!-- Neighbourhood selector bar -->
     <div class="nm-bar">
       <span class="nm-bar-label">שכונה</span>
       <div class="nm-tabs" id="nm-tabs"></div>
     </div>
 
-    <!-- Dynamic content (title, PDF button, project table) -->
-    <div class="nm-content" id="nm-content">
-      <div class="nm-loading">בוחר שכונה...</div>
+    <!-- Two-panel body -->
+    <div class="nm-body">
+
+      <!-- Left: embedded PDF viewer -->
+      <div class="nm-pdf-area">
+        <!-- Error state (shown when PDF is unavailable) -->
+        <div class="nm-pdf-error" id="nm-pdf-error" style="display:none">
+          <div class="nm-pdf-error-inner">
+            <div class="nm-pdf-error-icon">📄</div>
+            <div class="nm-pdf-error-msg">מפת השכונה אינה זמינה כרגע</div>
+            <div class="nm-pdf-error-hint">הוסף את קובץ ה-PDF לתיקיית maps/</div>
+          </div>
+        </div>
+        <!-- PDF iframe (hidden until PDF is confirmed available) -->
+        <iframe
+          id="nm-pdf-frame"
+          class="nm-pdf-frame"
+          src=""
+          title="מפת שכונה"
+          style="display:none"
+          allowfullscreen
+        ></iframe>
+      </div>
+
+      <!-- Right: project selector + detail panel -->
+      <div class="nm-info-col">
+
+        <!-- Project dropdown -->
+        <div class="nm-select-area">
+          <div class="nm-select-header">
+            <span class="nm-select-label">פרויקט / מגרש</span>
+            <span class="nm-proj-count" id="nm-proj-count"></span>
+          </div>
+          <select
+            id="nm-proj-select"
+            class="nm-proj-select"
+            onchange="nmShowProject(this.value)"
+          >
+            <option value="">— בחר פרויקט לצפייה —</option>
+          </select>
+        </div>
+
+        <!-- Detail panel (scrollable) -->
+        <div class="nm-detail-wrap">
+          <div id="nm-proj-detail">
+            <div class="nm-detail-hint">בחר פרויקט מהרשימה לצפייה בפרטים</div>
+          </div>
+        </div>
+
+      </div>
     </div>
 
   </div><!-- /page-map -->

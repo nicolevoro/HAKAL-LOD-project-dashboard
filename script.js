@@ -552,14 +552,20 @@ function _mkBarChart(id, labels, vals, color) {
 }
 
 /* ════════════════════════════════════════════════
-   MAPS PAGE — Neighbourhood Info + PDF opener
-   
-   Simple, stable implementation:
-   • Neighbourhood selector (tabs)
-   • Description + PDF button per neighbourhood
-   • Project table filtered from projects.json
-   • All logic wrapped in try/catch
-   • Zero external dependencies (no Leaflet, no images)
+   MAPS PAGE — Embedded PDF viewer + Project panel
+
+   Layout (two panels):
+   Left  : <iframe> showing the official neighbourhood PDF
+           (browser's native zoom / scroll / fit-to-width)
+   Right : dropdown to select a project + detail card
+
+   Data:
+   • NM_HOODS        neighbourhood list (PDF paths + match keys)
+   • NM_LOT_DATA     PDF-extracted lot info (developer/units/occupancy/buildings)
+   • ALL_PROJECTS    live project data fetched from projects.json
+
+   All logic is wrapped in try/catch; any failure shows a
+   graceful message without affecting the rest of the dashboard.
 ════════════════════════════════════════════════ */
 
 /* ── Neighbourhood definitions ── */
@@ -567,140 +573,305 @@ const NM_HOODS = [
   {
     id:    'nofei',
     name:  'נופי בן שמן',
-    desc:  'שכונה חדשה הנבנית צפון-מזרחית ללוד. כוללת מגורים, מוסדות חינוך, שטחי ציבור ופארקים.',
     pdf:   'maps/nofei-ben-shemen.pdf',
-    match: 'נופי בן שמן',   // exact value of project.neighborhood in projects.json
+    match: 'נופי בן שמן',
   },
   {
     id:    'harofev',
     name:  'הרובע הבינלאומי',
-    desc:  'רובע עירוני מעורב שימושים הכולל מגורים, תעסוקה, מסחר ומוסדות ציבור בלב העיר לוד.',
     pdf:   'maps/international-quarter.pdf',
     match: 'הרובע הבינלאומי',
   },
 ];
 
+/* ── Lot data extracted from official PDF maps ── */
+/* developer, units, occupancy quarter, type, public buildings */
+const NM_LOT_DATA = {
+  // ── נופי בן שמן — public ──
+  '100':  { developer:'',             units:144, occupancy:'',        type:'public',      buildings:['מבנה ציבור'] },
+  '400':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['מבנה ציבור'] },
+  '401':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['4 כיתות גן','בית כנסת'] },
+  '402':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['6 כיתות גן'] },
+  '403':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['בי"ס יסודי 24 כיתות','אולם ספורט','מסחר','מקווה'] },
+  '404':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['בי"ס יסודי 24 כיתות','4 כיתות גן','מסחר','מועדון נוער'] },
+  '405':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['6 כיתות גן'] },
+  '406':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['בי"ס תיכון 54 כיתות','מעון יום','אולם ספורט','מבנה רב תכליתי'] },
+  '407':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['מעונות יום','6 כיתות'] },
+  '408':  { developer:'',             units:0,   occupancy:'',        type:'public',      buildings:['בי"ס יסודי 18 כיתות','3 כיתות גן','מגרש ספורט','בית כנסת'] },
+  // ── נופי בן שמן — residential ──
+  '101':  { developer:'אהרוני',       units:164, occupancy:'Q1/2027', type:'residential', buildings:[] },
+  '102':  { developer:'',             units:196, occupancy:'',        type:'residential', buildings:[] },
+  '103':  { developer:'אמורה',        units:166, occupancy:'Q3/2028', type:'residential', buildings:[] },
+  '104':  { developer:'',             units:102, occupancy:'',        type:'residential', buildings:[] },
+  '105':  { developer:'אפי קפיטל',   units:190, occupancy:'Q3/2027', type:'residential', buildings:[] },
+  '106':  { developer:'אמורה',        units:166, occupancy:'',        type:'residential', buildings:[] },
+  '108':  { developer:'אהרוזדים',     units:402, occupancy:'Q3/2028', type:'residential', buildings:[] },
+  '109':  { developer:'שיקון ובינוי', units:247, occupancy:'Q3/2026', type:'residential', buildings:[] },
+  '111':  { developer:"פרסקוביץ'",   units:352, occupancy:'',        type:'residential', buildings:[] },
+  '113':  { developer:'אמורה',        units:166, occupancy:'',        type:'residential', buildings:[] },
+  '114':  { developer:'שיקון וביני',  units:168, occupancy:'',        type:'residential', buildings:[] },
+  '115':  { developer:'אהרוני',       units:274, occupancy:'Q1/2028', type:'residential', buildings:[] },
+  '117':  { developer:'דוראל',        units:200, occupancy:'Q3/2026', type:'residential', buildings:[] },
+  '118':  { developer:'שיקון ביני',   units:166, occupancy:'',        type:'residential', buildings:[] },
+  '119':  { developer:'אמורה',        units:168, occupancy:'',        type:'residential', buildings:[] },
+  '121':  { developer:'אהרוני',       units:274, occupancy:'Q1/2028', type:'residential', buildings:[] },
+  '123':  { developer:'אפי קפיטל',   units:196, occupancy:'Q3/2028', type:'residential', buildings:[] },
+  '150':  { developer:'',             units:300, occupancy:'',        type:'residential', buildings:[] },
+  '1050': { developer:'עץ השקד',      units:132, occupancy:'Q2/2028', type:'residential', buildings:[] },
+  // ── הרובע הבינלאומי ──
+  '4002': { developer:'', units:0, occupancy:'', type:'public',      buildings:['בי"ס תיכון 42 כיתות','12 כיתות חינוך מיוחד'] },
+  '4004': { developer:'', units:0, occupancy:'', type:'public',      buildings:['מתחם ציבורי'] },
+  '4007': { developer:'', units:0, occupancy:'', type:'public',      buildings:['4 כיתות גן','בית כנסת'] },
+  '4008': { developer:'', units:0, occupancy:'', type:'public',      buildings:['6 מעונות יום שיקומיים'] },
+  '4009': { developer:'', units:0, occupancy:'', type:'public',      buildings:['3 מעונות יום','4 גני ילדים'] },
+  '4010': { developer:'', units:0, occupancy:'', type:'public',      buildings:['ריכוז בתי כנסת'] },
+  '4011': { developer:'', units:0, occupancy:'', type:'public',      buildings:['בי"ס יסודי 18 כיתות'] },
+  '4012': { developer:'', units:0, occupancy:'', type:'public',      buildings:['בי"ס יסודי 24 כיתות','מועדון נוער'] },
+  '4014': { developer:'', units:0, occupancy:'', type:'public',      buildings:['24 כיתות בתי ספר יסודיים','מקווה'] },
+  '4017': { developer:'', units:0, occupancy:'', type:'public',      buildings:['מבנה ציבורי'] },
+  '4021': { developer:'', units:0, occupancy:'', type:'public',      buildings:['3 מעונות יום','4 גני ילדים','בית כנסת'] },
+  '4022': { developer:'', units:0, occupancy:'', type:'public',      buildings:['3 כיתות גן','בית כנסת'] },
+  '4023': { developer:'', units:0, occupancy:'', type:'public',      buildings:['6 מעונות יום','4 גני ילדים','מועדון נוער'] },
+  '4030': { developer:'', units:0, occupancy:'', type:'residential', buildings:[] },
+  '905':  { developer:'', units:0, occupancy:'', type:'public',      buildings:['מבנה ציבורי'] },
+  '906':  { developer:'', units:0, occupancy:'', type:'public',      buildings:['מבנה ציבורי'] },
+  '303':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '304':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '306':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '312':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '313':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '314':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '316':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '323':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '324':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '339':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '341':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+  '342':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
+};
+
+/* ── Runtime state ── */
 let NM_ACTIVE_ID = NM_HOODS[0].id;
 
-/* ── Init: build tabs, render first hood ── */
+/* ═══════════════════════════════════
+   PUBLIC API
+═══════════════════════════════════ */
+
+/** Called by nav() every time the Maps tab is opened. */
 function initNeighbourhoodMap() {
   try {
-    const tabsEl = document.getElementById('nm-tabs');
-    if (tabsEl && tabsEl.childElementCount === 0) {
-      NM_HOODS.forEach((h, i) => {
-        const btn = document.createElement('button');
-        btn.className   = 'nm-tab' + (i === 0 ? ' active' : '');
-        btn.textContent = h.name;
-        btn.onclick     = () => nmSelectHood(h.id);
-        tabsEl.appendChild(btn);
-      });
-    }
-    nmRenderHood();
+    _nmBuildTabs();
+    nmSelectHood(NM_ACTIVE_ID);
   } catch (e) { console.error('initNeighbourhoodMap:', e); }
 }
 
-/* ── Switch neighbourhood ── */
+/** Switch to a different neighbourhood. */
 function nmSelectHood(id) {
   try {
     NM_ACTIVE_ID = id;
-    const hood = NM_HOODS.find(h => h.id === id);
+    const hood = NM_HOODS.find(h => h.id === id) || NM_HOODS[0];
+
+    // Update tab highlight
     document.querySelectorAll('.nm-tab').forEach(b =>
-      b.classList.toggle('active', hood && b.textContent === hood.name)
+      b.classList.toggle('active', b.textContent === hood.name)
     );
-    nmRenderHood();
+
+    // Load PDF (async — errors handled inside)
+    _nmLoadPdf(hood.pdf);
+
+    // Populate the project dropdown for this neighbourhood
+    _nmPopulateSelect(hood.match);
+
+    // Reset the detail panel
+    setHTML('nm-proj-detail', '<div class="nm-detail-hint">בחר פרויקט מהרשימה לצפייה בפרטים</div>');
   } catch (e) { console.error('nmSelectHood:', e); }
 }
 
-/* ── Render neighbourhood info + project table ── */
-function nmRenderHood() {
+/** Called when the user picks a project in the dropdown. */
+function nmShowProject(projectId) {
   try {
-    const hood = NM_HOODS.find(h => h.id === NM_ACTIVE_ID);
-    const el   = document.getElementById('nm-content');
-    if (!hood || !el) return;
+    const detailEl = document.getElementById('nm-proj-detail');
+    if (!detailEl) return;
 
-    // Projects for this neighbourhood, filtered by user role
-    const base     = _userFilter(ALL_PROJECTS);
-    const projects = base.filter(p => (p.neighborhood || '') === hood.match);
-
-    // Helper: first non-empty 2026 milestone text
-    function nextMs(p) {
-      for (const q of QS26) {
-        const ms = (p.plan || {})[q];
-        if (ms && ms.text && ms.text.trim()) {
-          const txt = ms.text.trim().substring(0, 55);
-          return txt + (ms.month ? ' [' + ms.month + ']' : '');
-        }
-      }
-      return '—';
+    if (!projectId) {
+      detailEl.innerHTML = '<div class="nm-detail-hint">בחר פרויקט מהרשימה לצפייה בפרטים</div>';
+      return;
     }
 
-    const tableRows = projects.map(p => `
-      <tr>
-        <td class="nm-td">${esc(p.project || '—')}</td>
-        <td class="nm-td">${esc(p.sub     || '—')}</td>
-        <td class="nm-td">${esc(p.manager || '—')}</td>
-        <td class="nm-td"><span class="tag ${stCls(p.status)}">${esc(p.status || '—')}</span></td>
-        <td class="nm-td nm-td-wrap">${esc(nextMs(p))}</td>
-        <td class="nm-td nm-td-wrap">${esc(p.blockers || '—')}</td>
-        <td class="nm-td nm-td-wrap">${esc(p.notes    || '—')}</td>
-      </tr>`).join('');
+    const p = ALL_PROJECTS.find(r => r.id === projectId);
+    if (!p) return;
 
-    el.innerHTML = `
-      <div class="nm-hood-card">
-        <h2 class="nm-hood-title">${esc(hood.name)}</h2>
-        <p  class="nm-hood-desc">${esc(hood.desc)}</p>
-        <div class="nm-pdf-row">
-          <button class="nm-pdf-btn" onclick="nmOpenPdf('${esc(hood.pdf)}')">
-            📄 פתח מפת שכונה
-          </button>
-          <span class="nm-pdf-hint">PDF יפתח בלשונית חדשה</span>
-          <span class="nm-pdf-msg" id="nm-pdf-msg" style="display:none">
-            ⚠️ מפת השכונה אינה זמינה כרגע
-          </span>
-        </div>
-      </div>
+    // Try to find lot data
+    const lotKey  = _nmExtractLotKey(p.sub || '') || _nmExtractLotKey(p.project || '');
+    const lotInfo = lotKey ? (NM_LOT_DATA[lotKey] || null) : null;
 
-      <div class="nm-proj-section">
-        <div class="nm-proj-hdr">
-          פרויקטים בשכונה
-          <span class="nm-proj-count">${projects.length}</span>
-        </div>
-        ${projects.length === 0
-          ? '<div class="nm-no-proj">אין פרויקטים תואמים לשכונה זו</div>'
-          : `<div class="nm-table-wrap">
-               <table class="nm-table">
-                 <thead>
-                   <tr>
-                     <th>פרויקט אב</th><th>תת פרויקט</th><th>מנהל</th>
-                     <th>סטטוס</th><th>אבן דרך הבאה</th><th>חסמים</th><th>הערות</th>
-                   </tr>
-                 </thead>
-                 <tbody>${tableRows}</tbody>
-               </table>
-             </div>`
-        }
+    let html = `<div class="nm-detail-card">`;
+
+    /* ── Lot identifier ── */
+    html += `<div class="nm-detail-title">${esc(p.sub || p.project || '—')}</div>`;
+    if (lotKey) html += `<div class="nm-detail-lot">מגרש ${esc(lotKey)}</div>`;
+
+    /* ── PDF-extracted data (if available) ── */
+    if (lotInfo) {
+      html += `<div class="nm-section"><div class="nm-section-title">מידע מהמפה הרשמית</div>`;
+      if (lotInfo.developer) html += _nmRow('יזם / קבלן',  lotInfo.developer);
+      if (lotInfo.units)     html += _nmRow('יחידות דיור', lotInfo.units + ' יח"ד');
+      if (lotInfo.occupancy) html += _nmRow('אכלוס משוער', lotInfo.occupancy);
+      const typeLabel = lotInfo.type === 'public' ? 'ציבורי' : lotInfo.type === 'mixed' ? 'עירוב שימושים' : 'מגורים';
+      html += _nmRow('סוג מגרש', typeLabel);
+      if (lotInfo.buildings && lotInfo.buildings.length) {
+        html += `<div class="nm-row"><span class="nm-row-lbl">מבני ציבור</span>
+          <div class="nm-tags">${lotInfo.buildings.map(b => `<span class="nm-tag">${esc(b)}</span>`).join('')}</div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+
+    /* ── Live project data ── */
+    html += `<div class="nm-section"><div class="nm-section-title">נתוני פרויקט</div>`;
+    html += _nmRow('פרויקט אב',  p.project);
+    html += _nmRow('מנהל',       p.manager);
+    if (p.supervisor) html += _nmRow('גורם מבצע', p.supervisor);
+
+    const stHex = _nmStatusHex(p.status);
+    html += `<div class="nm-row"><span class="nm-row-lbl">סטטוס</span>
+      <span class="nm-status-badge" style="background:${stHex}22;color:${stHex};border:1px solid ${stHex}44">${esc(p.status || '—')}</span>
+    </div>`;
+
+    if (p.blockers) {
+      html += `<div class="nm-row"><span class="nm-row-lbl">חסמים</span>
+        <span class="nm-row-val" style="color:var(--danger)">${esc(p.blockers)}</span></div>`;
+    }
+    if (p.notes) html += _nmRow('הערות', p.notes);
+    html += '</div>';
+
+    /* ── Milestones 2026 ── */
+    const msCells = QS26.map(q => {
+      const ms = (p.plan || {})[q];
+      const st = (p.comp || {})[q];
+      const c  = st && COMP[st] ? COMP[st] : null;
+      if (!ms || !ms.text.trim()) return '';
+      return `<div class="nm-ms-cell"${c ? ` style="border-color:${c.bg}"` : ''}>
+        <div class="nm-ms-q">${q.replace(' 2026','')}${st ? ' · ' + st : ''}</div>
+        <div class="nm-ms-txt">${esc(ms.text)}${ms.month ? ' [' + esc(ms.month) + ']' : ''}</div>
       </div>`;
-  } catch (e) { console.error('nmRenderHood:', e); }
+    }).filter(Boolean).join('');
+
+    if (msCells) {
+      html += `<div class="nm-section"><div class="nm-section-title">אבני דרך 2026</div>
+        <div class="nm-ms-grid">${msCells}</div>
+      </div>`;
+    }
+
+    /* ── Future milestones ── */
+    const futureRows = [
+      p.yr2027 ? _nmRow('2027', p.yr2027) : '',
+      p.yr2028 ? _nmRow('2028', p.yr2028) : '',
+      p.yr2029 ? _nmRow('2029', p.yr2029) : '',
+    ].filter(Boolean).join('');
+
+    if (futureRows) {
+      html += `<div class="nm-section"><div class="nm-section-title">יעדים עתידיים</div>${futureRows}</div>`;
+    }
+
+    html += '</div>'; // nm-detail-card
+    detailEl.innerHTML = html;
+  } catch (e) { console.error('nmShowProject:', e); }
 }
 
-/* ── Open PDF — check availability first, show message if missing ── */
-async function nmOpenPdf(pdfUrl) {
-  try {
-    const msgEl = document.getElementById('nm-pdf-msg');
-    if (msgEl) msgEl.style.display = 'none';
-    try {
-      const res = await fetch(pdfUrl, { method: 'HEAD' });
-      if (res.ok) {
-        window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-      } else {
-        if (msgEl) msgEl.style.display = 'inline';
-      }
-    } catch {
-      // On file:// protocol or network error → try opening anyway
-      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-    }
-  } catch (e) { console.error('nmOpenPdf:', e); }
+/* ═══════════════════════════════════
+   PRIVATE HELPERS
+═══════════════════════════════════ */
+
+/** Build neighbourhood tab buttons (idempotent). */
+function _nmBuildTabs() {
+  const tabsEl = document.getElementById('nm-tabs');
+  if (!tabsEl || tabsEl.childElementCount > 0) return;
+  NM_HOODS.forEach((h, i) => {
+    const btn = document.createElement('button');
+    btn.className   = 'nm-tab' + (i === 0 ? ' active' : '');
+    btn.textContent = h.name;
+    btn.onclick     = () => nmSelectHood(h.id);
+    tabsEl.appendChild(btn);
+  });
 }
+
+/** Load PDF into the iframe; show error message if unavailable. */
+async function _nmLoadPdf(pdfUrl) {
+  const frame  = document.getElementById('nm-pdf-frame');
+  const errDiv = document.getElementById('nm-pdf-error');
+  if (!frame || !errDiv) return;
+
+  // Reset state while loading
+  frame.style.display  = 'none';
+  errDiv.style.display = 'none';
+
+  try {
+    const res = await fetch(pdfUrl, { method: 'HEAD' });
+    if (res.ok) {
+      frame.src           = pdfUrl;
+      frame.style.display = 'block';
+    } else {
+      errDiv.style.display = 'flex';
+    }
+  } catch {
+    // On file:// protocol or network error → attempt to show the PDF anyway
+    // (fetch fails on file://, but iframe may still work)
+    frame.src           = pdfUrl;
+    frame.style.display = 'block';
+  }
+}
+
+/** Fill the project dropdown for the selected neighbourhood. */
+function _nmPopulateSelect(matchNeighbourhood) {
+  const sel = document.getElementById('nm-proj-select');
+  if (!sel) return;
+
+  // Remove old options except the placeholder
+  while (sel.options.length > 1) sel.remove(1);
+
+  // Filter by neighbourhood + user role
+  const visible  = _userFilter(ALL_PROJECTS);
+  const projects = visible
+    .filter(p => (p.neighborhood || '') === matchNeighbourhood)
+    .sort((a, b) => (a.sub || a.project || '').localeCompare(b.sub || b.project || '', 'he'));
+
+  projects.forEach(p => {
+    const o = document.createElement('option');
+    o.value       = p.id;
+    const label   = p.sub || p.project || '—';
+    const lotKey  = _nmExtractLotKey(label);
+    o.textContent = lotKey ? `מגרש ${lotKey} — ${esc(p.manager || '')}` : esc(label);
+    sel.appendChild(o);
+  });
+
+  // Reset detail panel
+  set('nm-proj-count', projects.length + ' פרויקטים');
+}
+
+/** Extract a lot number string from a project name, e.g. "מגרש 108" → "108". */
+function _nmExtractLotKey(s) {
+  const m = (s || '').match(/מגרש\s+([\d\+]+)/);
+  return m ? m[1] : null;
+}
+
+function _nmStatusHex(st) {
+  st = (st || '').trim();
+  if (st === 'מסירות' || st === 'הסתיים') return '#059669';
+  if (st === 'ביצוע')                     return '#1d4ed8';
+  if (st === 'התקשרות')                   return '#0891b2';
+  if (st.includes('תכנון'))               return '#d97706';
+  if (st === 'טרם החל')                   return '#94a3b8';
+  return '#6b7280';
+}
+
+function _nmRow(label, value) {
+  if (value === null || value === undefined || value === '') return '';
+  return `<div class="nm-row">
+    <span class="nm-row-lbl">${esc(label)}</span>
+    <span class="nm-row-val">${esc(String(value))}</span>
+  </div>`;
+}
+
 
 /* ════════════════════════════════════════════════
    NAVIGATION
