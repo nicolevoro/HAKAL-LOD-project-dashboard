@@ -126,6 +126,13 @@ function _applyLogin(user) {
     filtersEl.style.display = 'none';
   }
 
+  // ניתוח סיכונים ומפה — גישה למנהל מערכת בלבד (בהקמה)
+  const isAdmin  = user.role === 'admin';
+  const riskBtn  = document.getElementById('nav-risk');
+  const mapBtn   = document.getElementById('nav-map');
+  if (riskBtn) riskBtn.style.display = isAdmin ? '' : 'none';
+  if (mapBtn)  mapBtn.style.display  = isAdmin ? '' : 'none';
+
   // Initialise dropdowns then render
   _initDropdowns();
   _resetExpand();
@@ -838,9 +845,14 @@ function _nmRow(label, value) {
 ════════════════════════════════════════════════ */
 
 function nav(page) {
+  // מנהלי פרויקט לא יכולים לגשת לעמודי סיכונים ומפה
+  if ((page === 'risk' || page === 'map') && CURRENT_USER && CURRENT_USER.role !== 'admin') {
+    page = 'dash';
+  }
   ['dash', 'risk', 'map'].forEach(p => {
     document.getElementById(`page-${p}`).classList.toggle('active', p === page);
-    document.getElementById(`nav-${p}`).classList.toggle('active', p === page);
+    const btn = document.getElementById(`nav-${p}`);
+    if (btn) btn.classList.toggle('active', p === page);
   });
   if (page === 'map')  initNeighbourhoodMap();
   if (page === 'risk') _updateRisk(getFiltered());
