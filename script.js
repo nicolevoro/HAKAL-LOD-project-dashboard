@@ -407,8 +407,9 @@ function makeThead(isExt) {
   QS26.forEach(q => { h += `<th style="min-width:145px">${q}<br><small style="font-weight:400;opacity:.6">אבן דרך</small></th>`; });
   h += '<th style="min-width:72px">2027</th><th style="min-width:72px">2028</th>';
   h += '<th style="min-width:188px">חסמים / עיכובים</th>';
+  h += '<th style="min-width:168px">הערות לדשבורד</th>';
   if (!isExt) h += '<th style="min-width:168px">ניהול איחורים</th><th style="min-width:168px">ניהול חסמים</th>';
-  h += '<th style="min-width:168px">הערות לדשבורד</th></tr>';
+  h += '</tr>';
   return h;
 }
 
@@ -426,7 +427,10 @@ function makeRows(list, stObj, isExt, isEiruv) {
     html += `<tr class="r-grp${extCls}" onclick="tog('${r.id}',${isExt},${isEiruv})">`;
     html += `<td colspan="20"><div class="grp-cell">`;
     html += `<div class="grp-btn" id="xi-${r.id}">${exp ? '▾' : '▸'}</div>`;
-    html += `<span class="grp-name" title="${esc(r.sub || r.project)}">${esc((r.sub || r.project || '—').substring(0, 58))}</span>`;
+    const _dispName = (isEiruv && r.management_co)
+      ? `${r.sub || r.project || '—'} | חברת ניהול: ${r.management_co}`
+      : (r.sub || r.project || '—');
+    html += `<span class="grp-name" title="${esc(_dispName)}">${esc(_dispName.substring(0, 82))}</span>`;
     if (r.status)       html += `<span class="tag ${stCls(r.status)}">${esc(r.status)}</span>`;
     if (r.risk_score > 3) html += `<span class="rb rb-c" style="margin-right:4px">⚠ ${r.risk_score}</span>`;
     if (r.manager)      html += `<span class="grp-mgr">${esc(r.manager)}</span>`;
@@ -441,19 +445,21 @@ function makeRows(list, stObj, isExt, isEiruv) {
     html += `<td class="yr-cell">${esc(r.yr2027).replace(/\n/g,'<br>')}</td>`;
     html += `<td class="yr-cell">${esc(r.yr2028).replace(/\n/g,'<br>')}</td>`;
     html += `<td class="blk-cell">${r.blockers ? esc(r.blockers).replace(/\n/g,'<br>') : '<span class="ms-empty">—</span>'}</td>`;
+    html += `<td class="blk-cell">${r.notes ? esc(r.notes).replace(/\n/g,'<br>') : '<span class="ms-empty">—</span>'}</td>`;
     if (!isExt) {
       html += `<td class="blk-cell">${r.delays_mgmt ? esc(r.delays_mgmt).replace(/\n/g,'<br>') : '<span class="ms-empty">—</span>'}</td>`;
       html += `<td class="blk-cell">${r.blocks_mgmt ? esc(r.blocks_mgmt).replace(/\n/g,'<br>') : '<span class="ms-empty">—</span>'}</td>`;
     }
-    html += `<td class="blk-cell">${r.notes ? esc(r.notes).replace(/\n/g,'<br>') : '<span class="ms-empty">—</span>'}</td></tr>`;
+    html += '</tr>';
 
     // ── Exec row ──
     html += `<tr class="r-exec"><td class="row-lbl exec">ביצוע</td>`;
     if (isExt) html += '<td></td>';
     QS26.forEach(q => { html += `<td>${execCell(r, q)}</td>`; });
-    // exec_yr2027 / exec_yr2028 — from ביצוע row 2027/2028 columns
+    // exec 2027 / 2028 — from ביצוע row
     html += `<td class="yr-cell">${r.exec_yr2027 ? esc(r.exec_yr2027).replace(/\n/g,'<br>') : ''}</td>`;
     html += `<td class="yr-cell">${r.exec_yr2028 ? esc(r.exec_yr2028).replace(/\n/g,'<br>') : ''}</td>`;
+    // empties: blockers, notes, [delays, blocks for non-ext]
     const empties = isExt ? 2 : 4;
     for (let i = 0; i < empties; i++) html += '<td></td>';
     html += '</tr>';
