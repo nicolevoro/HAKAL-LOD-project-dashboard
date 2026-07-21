@@ -126,13 +126,6 @@ function _applyLogin(user) {
     filtersEl.style.display = 'none';
   }
 
-  // ניתוח סיכונים ומפה — גישה למנהל מערכת בלבד (בהקמה)
-  const isAdmin  = user.role === 'admin';
-  const riskBtn  = document.getElementById('nav-risk');
-  const mapBtn   = document.getElementById('nav-map');
-  if (riskBtn) riskBtn.style.display = isAdmin ? '' : 'none';
-  if (mapBtn)  mapBtn.style.display  = isAdmin ? '' : 'none';
-
   // Initialise dropdowns then render
   _initDropdowns();
   _resetExpand();
@@ -458,7 +451,10 @@ function makeRows(list, stObj, isExt, isEiruv) {
     html += `<tr class="r-exec"><td class="row-lbl exec">ביצוע</td>`;
     if (isExt) html += '<td></td>';
     QS26.forEach(q => { html += `<td>${execCell(r, q)}</td>`; });
-    const empties = isExt ? 4 : 6;
+    // exec_yr2027 / exec_yr2028 — from ביצוע row 2027/2028 columns
+    html += `<td class="yr-cell">${r.exec_yr2027 ? esc(r.exec_yr2027).replace(/\n/g,'<br>') : ''}</td>`;
+    html += `<td class="yr-cell">${r.exec_yr2028 ? esc(r.exec_yr2028).replace(/\n/g,'<br>') : ''}</td>`;
+    const empties = isExt ? 2 : 4;
     for (let i = 0; i < empties; i++) html += '<td></td>';
     html += '</tr>';
   });
@@ -559,23 +555,40 @@ function _mkBarChart(id, labels, vals, color) {
 }
 
 /* ════════════════════════════════════════════════
-   MAPS PAGE
+   MAPS PAGE — Embedded PDF viewer + Project panel
 
-   Exact implementation per specification:
-   • Two explicit buttons in HTML set iframe src directly.
-   • iframe id = "neighborhood-pdf" (as required).
-   • src set to PDF path with #view=FitH fragment.
-   • NM_LOT_DATA holds PDF-extracted lot information.
-   • All logic wrapped in try/catch — cannot crash dashboard.
+   Layout (two panels):
+   Left  : <iframe> showing the official neighbourhood PDF
+           (browser's native zoom / scroll / fit-to-width)
+   Right : dropdown to select a project + detail card
 
-   All image map references, editor code, and
-   invented coordinates have been completely removed.
+   Data:
+   • NM_HOODS        neighbourhood list (PDF paths + match keys)
+   • NM_LOT_DATA     PDF-extracted lot info (developer/units/occupancy/buildings)
+   • ALL_PROJECTS    live project data fetched from projects.json
+
+   All logic is wrapped in try/catch; any failure shows a
+   graceful message without affecting the rest of the dashboard.
 ════════════════════════════════════════════════ */
 
-/* ── Lot data extracted from official PDF maps ──────────────
-   Used to enrich the project detail panel with:
-   developer, housing units, occupancy quarter, public buildings.
-─────────────────────────────────────────────────────────── */
+/* ── Neighbourhood definitions ── */
+const NM_HOODS = [
+  {
+    id:    'nofei',
+    name:  'נופי בן שמן',
+    pdf:   'maps/nofei-ben-shemen.pdf',
+    match: 'נופי בן שמן',
+  },
+  {
+    id:    'harofev',
+    name:  'הרובע הבינלאומי',
+    pdf:   'maps/international-quarter.pdf',
+    match: 'הרובע הבינלאומי',
+  },
+];
+
+/* ── Lot data extracted from official PDF maps ── */
+/* developer, units, occupancy quarter, type, public buildings */
 const NM_LOT_DATA = {
   // ── נופי בן שמן — public ──
   '100':  { developer:'',             units:144, occupancy:'',        type:'public',      buildings:['מבנה ציבור'] },
@@ -639,113 +652,74 @@ const NM_LOT_DATA = {
   '342':  { developer:'', units:0, occupancy:'', type:'mixed',       buildings:['עירוב שימושים'] },
 };
 
-/* ── neighbourhood → projects.json neighbourhood field ── */
-const NM_MATCH = {
-  nofei:   'נופי בן שמן',
-  harofev: 'הרובע הבינלאומי',
-};
+/* ── Runtime state ── */
+let NM_ACTIVE_ID = NM_HOODS[0].id;
 
-/** Called by nav() each time the Maps tab is opened. */
+/* ═══════════════════════════════════
+   PUBLIC API
+═══════════════════════════════════ */
+
+/** Called by nav() every time the Maps tab is opened. */
 function initNeighbourhoodMap() {
   try {
-    // Default: load first neighbourhood
-    nmSelectHood('nofei');
+    _nmBuildTabs();
+    nmSelectHood(NM_ACTIVE_ID);
   } catch (e) { console.error('initNeighbourhoodMap:', e); }
 }
 
-/**
- * Select a neighbourhood.
- * Sets the iframe src directly as specified:
- *   document.getElementById('neighborhood-pdf').src = '<path>#view=FitH';
- */
-function nmSelectHood(hoodId) {
+/** Switch to a different neighbourhood. */
+function nmSelectHood(id) {
   try {
-    // Highlight the active button
-    document.querySelectorAll('.nm-hood-btn').forEach(b =>
-      b.classList.toggle('active', b.dataset.hood === hoodId)
+    NM_ACTIVE_ID = id;
+    const hood = NM_HOODS.find(h => h.id === id) || NM_HOODS[0];
+
+    // Update tab highlight
+    document.querySelectorAll('.nm-tab').forEach(b =>
+      b.classList.toggle('active', b.textContent === hood.name)
     );
 
-    // ── Set PDF source exactly per spec ──
-    const frame = document.getElementById('neighborhood-pdf');
-    if (frame) {
-      if (hoodId === 'nofei') {
-        frame.src = 'maps/nofei-ben-shemen.pdf#view=FitH';
-      } else {
-        frame.src = 'maps/international-quarter.pdf#view=FitH';
-      }
-    }
+    // Load PDF (async — errors handled inside)
+    _nmLoadPdf(hood.pdf);
 
-    // Populate project dropdown for this neighbourhood
-    _nmPopulateSelect(NM_MATCH[hoodId] || '');
+    // Populate the project dropdown for this neighbourhood
+    _nmPopulateSelect(hood.match);
 
-    // Reset detail panel
-    setHTML('nm-proj-detail',
-      '<div class="nm-detail-hint">בחר פרויקט מהרשימה לצפייה בפרטים</div>');
-
+    // Reset the detail panel
+    setHTML('nm-proj-detail', '<div class="nm-detail-hint">בחר פרויקט מהרשימה לצפייה בפרטים</div>');
   } catch (e) { console.error('nmSelectHood:', e); }
 }
 
-/** Fill the project dropdown filtered by neighbourhood + user role. */
-function _nmPopulateSelect(matchNeighbourhood) {
-  try {
-    const sel = document.getElementById('nm-proj-select');
-    if (!sel) return;
-
-    while (sel.options.length > 1) sel.remove(1);
-
-    const visible  = _userFilter(ALL_PROJECTS);
-    const projects = visible
-      .filter(p => (p.neighborhood || '') === matchNeighbourhood)
-      .sort((a, b) =>
-        (a.sub || a.project || '').localeCompare(b.sub || b.project || '', 'he')
-      );
-
-    projects.forEach(p => {
-      const o    = document.createElement('option');
-      o.value    = p.id;
-      const key  = _nmExtractLotKey(p.sub || '');
-      o.textContent = key
-        ? `מגרש ${key} — ${p.manager || ''}`
-        : (p.sub || p.project || '—');
-      sel.appendChild(o);
-    });
-
-    set('nm-proj-count', projects.length + ' פרויקטים');
-  } catch (e) { console.error('_nmPopulateSelect:', e); }
-}
-
-/** Show full project detail in the right-side panel. */
+/** Called when the user picks a project in the dropdown. */
 function nmShowProject(projectId) {
   try {
     const detailEl = document.getElementById('nm-proj-detail');
     if (!detailEl) return;
 
     if (!projectId) {
-      detailEl.innerHTML =
-        '<div class="nm-detail-hint">בחר פרויקט מהרשימה לצפייה בפרטים</div>';
+      detailEl.innerHTML = '<div class="nm-detail-hint">בחר פרויקט מהרשימה לצפייה בפרטים</div>';
       return;
     }
 
     const p = ALL_PROJECTS.find(r => r.id === projectId);
     if (!p) return;
 
+    // Try to find lot data
     const lotKey  = _nmExtractLotKey(p.sub || '') || _nmExtractLotKey(p.project || '');
     const lotInfo = lotKey ? (NM_LOT_DATA[lotKey] || null) : null;
 
-    let html = '<div class="nm-detail-card">';
+    let html = `<div class="nm-detail-card">`;
 
-    // Header
+    /* ── Lot identifier ── */
     html += `<div class="nm-detail-title">${esc(p.sub || p.project || '—')}</div>`;
     if (lotKey) html += `<div class="nm-detail-lot">מגרש ${esc(lotKey)}</div>`;
 
-    // PDF-extracted lot data
+    /* ── PDF-extracted data (if available) ── */
     if (lotInfo) {
-      html += '<div class="nm-section"><div class="nm-section-title">מידע מהמפה הרשמית</div>';
+      html += `<div class="nm-section"><div class="nm-section-title">מידע מהמפה הרשמית</div>`;
       if (lotInfo.developer) html += _nmRow('יזם / קבלן',  lotInfo.developer);
       if (lotInfo.units)     html += _nmRow('יחידות דיור', lotInfo.units + ' יח"ד');
       if (lotInfo.occupancy) html += _nmRow('אכלוס משוער', lotInfo.occupancy);
-      const typeLabel = lotInfo.type === 'public' ? 'ציבורי'
-                      : lotInfo.type === 'mixed'  ? 'עירוב שימושים' : 'מגורים';
+      const typeLabel = lotInfo.type === 'public' ? 'ציבורי' : lotInfo.type === 'mixed' ? 'עירוב שימושים' : 'מגורים';
       html += _nmRow('סוג מגרש', typeLabel);
       if (lotInfo.buildings && lotInfo.buildings.length) {
         html += `<div class="nm-row"><span class="nm-row-lbl">מבני ציבור</span>
@@ -755,58 +729,51 @@ function nmShowProject(projectId) {
       html += '</div>';
     }
 
-    // Live project data from projects.json
-    html += '<div class="nm-section"><div class="nm-section-title">נתוני פרויקט</div>';
-    html += _nmRow('פרויקט אב', p.project);
-    html += _nmRow('מנהל',      p.manager);
+    /* ── Live project data ── */
+    html += `<div class="nm-section"><div class="nm-section-title">נתוני פרויקט</div>`;
+    html += _nmRow('פרויקט אב',  p.project);
+    html += _nmRow('מנהל',       p.manager);
     if (p.supervisor) html += _nmRow('גורם מבצע', p.supervisor);
 
     const stHex = _nmStatusHex(p.status);
     html += `<div class="nm-row"><span class="nm-row-lbl">סטטוס</span>
-      <span class="nm-status-badge"
-            style="background:${stHex}22;color:${stHex};border:1px solid ${stHex}44">
-        ${esc(p.status || '—')}
-      </span>
+      <span class="nm-status-badge" style="background:${stHex}22;color:${stHex};border:1px solid ${stHex}44">${esc(p.status || '—')}</span>
     </div>`;
 
-    if (p.blockers)
+    if (p.blockers) {
       html += `<div class="nm-row"><span class="nm-row-lbl">חסמים</span>
         <span class="nm-row-val" style="color:var(--danger)">${esc(p.blockers)}</span></div>`;
-    if (p.notes)
-      html += _nmRow('הערות', p.notes);
-    if (p.delays_mgmt)
-      html += _nmRow('ניהול איחורים', p.delays_mgmt);
+    }
+    if (p.notes) html += _nmRow('הערות', p.notes);
     html += '</div>';
 
-    // 2026 milestones
+    /* ── Milestones 2026 ── */
     const msCells = QS26.map(q => {
       const ms = (p.plan || {})[q];
       const st = (p.comp || {})[q];
       const c  = st && COMP[st] ? COMP[st] : null;
       if (!ms || !ms.text.trim()) return '';
       return `<div class="nm-ms-cell"${c ? ` style="border-color:${c.bg}"` : ''}>
-        <div class="nm-ms-q">${q.replace(' 2026', '')}${st ? ' · ' + st : ''}</div>
+        <div class="nm-ms-q">${q.replace(' 2026','')}${st ? ' · ' + st : ''}</div>
         <div class="nm-ms-txt">${esc(ms.text)}${ms.month ? ' [' + esc(ms.month) + ']' : ''}</div>
       </div>`;
     }).filter(Boolean).join('');
 
     if (msCells) {
-      html += `<div class="nm-section">
-        <div class="nm-section-title">אבני דרך 2026</div>
+      html += `<div class="nm-section"><div class="nm-section-title">אבני דרך 2026</div>
         <div class="nm-ms-grid">${msCells}</div>
       </div>`;
     }
 
-    // Future milestones
-    const future = [
+    /* ── Future milestones ── */
+    const futureRows = [
       p.yr2027 ? _nmRow('2027', p.yr2027) : '',
       p.yr2028 ? _nmRow('2028', p.yr2028) : '',
       p.yr2029 ? _nmRow('2029', p.yr2029) : '',
     ].filter(Boolean).join('');
-    if (future) {
-      html += `<div class="nm-section">
-        <div class="nm-section-title">יעדים עתידיים</div>${future}
-      </div>`;
+
+    if (futureRows) {
+      html += `<div class="nm-section"><div class="nm-section-title">יעדים עתידיים</div>${futureRows}</div>`;
     }
 
     html += '</div>'; // nm-detail-card
@@ -814,8 +781,77 @@ function nmShowProject(projectId) {
   } catch (e) { console.error('nmShowProject:', e); }
 }
 
-/* ── Private helpers ── */
+/* ═══════════════════════════════════
+   PRIVATE HELPERS
+═══════════════════════════════════ */
 
+/** Build neighbourhood tab buttons (idempotent). */
+function _nmBuildTabs() {
+  const tabsEl = document.getElementById('nm-tabs');
+  if (!tabsEl || tabsEl.childElementCount > 0) return;
+  NM_HOODS.forEach((h, i) => {
+    const btn = document.createElement('button');
+    btn.className   = 'nm-tab' + (i === 0 ? ' active' : '');
+    btn.textContent = h.name;
+    btn.onclick     = () => nmSelectHood(h.id);
+    tabsEl.appendChild(btn);
+  });
+}
+
+/** Load PDF into the iframe; show error message if unavailable. */
+async function _nmLoadPdf(pdfUrl) {
+  const frame  = document.getElementById('nm-pdf-frame');
+  const errDiv = document.getElementById('nm-pdf-error');
+  if (!frame || !errDiv) return;
+
+  // Reset state while loading
+  frame.style.display  = 'none';
+  errDiv.style.display = 'none';
+
+  try {
+    const res = await fetch(pdfUrl, { method: 'HEAD' });
+    if (res.ok) {
+      frame.src           = pdfUrl;
+      frame.style.display = 'block';
+    } else {
+      errDiv.style.display = 'flex';
+    }
+  } catch {
+    // On file:// protocol or network error → attempt to show the PDF anyway
+    // (fetch fails on file://, but iframe may still work)
+    frame.src           = pdfUrl;
+    frame.style.display = 'block';
+  }
+}
+
+/** Fill the project dropdown for the selected neighbourhood. */
+function _nmPopulateSelect(matchNeighbourhood) {
+  const sel = document.getElementById('nm-proj-select');
+  if (!sel) return;
+
+  // Remove old options except the placeholder
+  while (sel.options.length > 1) sel.remove(1);
+
+  // Filter by neighbourhood + user role
+  const visible  = _userFilter(ALL_PROJECTS);
+  const projects = visible
+    .filter(p => (p.neighborhood || '') === matchNeighbourhood)
+    .sort((a, b) => (a.sub || a.project || '').localeCompare(b.sub || b.project || '', 'he'));
+
+  projects.forEach(p => {
+    const o = document.createElement('option');
+    o.value       = p.id;
+    const label   = p.sub || p.project || '—';
+    const lotKey  = _nmExtractLotKey(label);
+    o.textContent = lotKey ? `מגרש ${lotKey} — ${esc(p.manager || '')}` : esc(label);
+    sel.appendChild(o);
+  });
+
+  // Reset detail panel
+  set('nm-proj-count', projects.length + ' פרויקטים');
+}
+
+/** Extract a lot number string from a project name, e.g. "מגרש 108" → "108". */
 function _nmExtractLotKey(s) {
   const m = (s || '').match(/מגרש\s+([\d\+]+)/);
   return m ? m[1] : null;
@@ -845,14 +881,9 @@ function _nmRow(label, value) {
 ════════════════════════════════════════════════ */
 
 function nav(page) {
-  // מנהלי פרויקט לא יכולים לגשת לעמודי סיכונים ומפה
-  if ((page === 'risk' || page === 'map') && CURRENT_USER && CURRENT_USER.role !== 'admin') {
-    page = 'dash';
-  }
   ['dash', 'risk', 'map'].forEach(p => {
     document.getElementById(`page-${p}`).classList.toggle('active', p === page);
-    const btn = document.getElementById(`nav-${p}`);
-    if (btn) btn.classList.toggle('active', p === page);
+    document.getElementById(`nav-${p}`).classList.toggle('active', p === page);
   });
   if (page === 'map')  initNeighbourhoodMap();
   if (page === 'risk') _updateRisk(getFiltered());
